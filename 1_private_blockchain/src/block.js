@@ -15,12 +15,22 @@ const hex2ascii = require('hex2ascii');
 class Block {
 
     // Constructor - argument data will be the object containing the transaction data
-	constructor(data){
+	constructor(data) {
 		this.hash = null;                                           // Hash of the block
 		this.height = 0;                                            // Block Height (consecutive number of each block)
 		this.body = Buffer.from(JSON.stringify(data)).toString('hex');   // Will contain the transactions stored in the block, by default it will encode the data
 		this.time = 0;                                              // Timestamp for the Block creation
 		this.previousBlockHash = null;                              // Reference to the previous Block Hash
+    }
+
+    calculateHash() {
+        let obj = JSON.parse(JSON.stringify(this)); // work with a copy to avoid nulling out this.hash
+        obj.hash = null;
+        return SHA256(JSON.stringify(obj)).toString();
+    }
+
+    isGenesisBlock() {
+        return this.previousBlockHash === null;
     }
     
     /**
@@ -35,17 +45,20 @@ class Block {
      *  5. Resolve true or false depending if it is valid or not.
      *  Note: to access the class values inside a Promise code you need to create an auxiliary value `let self = this;`
      */
-    validate() {
+    async validate() {
         let self = this;
         return new Promise((resolve, reject) => {
+            SHA256(JSON.stringify(self));
             // Save in auxiliary variable the current block hash
+            let savedHash = self.hash;
                                             
             // Recalculate the hash of the Block
+            let newHash = self.calculateHash();
+
             // Comparing if the hashes changed
             // Returning the Block is not valid
-            
             // Returning the Block is valid
-
+            resolve(savedHash === newHash);
         });
     }
 
@@ -58,15 +71,22 @@ class Block {
      *  3. Resolve with the data and make sure that you don't need to return the data for the `genesis block` 
      *     or Reject with an error.
      */
-    getBData() {
-        // Getting the encoded data saved in the Block
-        // Decoding the data to retrieve the JSON representation of the object
-        // Parse the data to an object to be retrieve.
+    async getBData() {
+        let self = this;
+        return new Promise((resolve, reject) => {
+            // Getting the encoded data saved in the Block
+            // Decoding the data to retrieve the JSON representation of the object
+            // Parse the data to an object to be retrieve.
+            // Resolve with the data if the object isn't the Genesis block
+            if (this.isGenesisBlock()) {
+                reject("Genesis block does not have a body");
+                return;
+            }
 
-        // Resolve with the data if the object isn't the Genesis block
-
+            let body = JSON.parse(hex2ascii(self.body));
+            resolve(body);
+        });
     }
-
 }
 
 module.exports.Block = Block;                    // Exposing the Block class as a module
